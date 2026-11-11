@@ -1,2 +1,2 @@
 # MeshWeaver-Team
-Team project for Python Development Internship
+MeshWeaver: Zero-Dependency P2P Async Task Broker
