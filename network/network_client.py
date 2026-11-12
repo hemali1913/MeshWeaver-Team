@@ -18,6 +18,19 @@ class UDPClient(asyncio.DatagramProtocol):
         self.transport = transport
         print("UDP Client is ready.")
 
+    def send_message(self, message, addr):
+        try:
+            data = json.dumps(message).encode()
+            self.transport.sendto(data, addr)
+
+            print("Message sent successfully:", message)
+
+        except (TypeError, ValueError) as exc:
+            print("Message encoding error:", exc)
+
+        except OSError as exc:
+            print("UDP sending error:", exc)
+
     def datagram_received(self, data, addr):
         try:
             message = json.loads(data.decode())
@@ -51,10 +64,12 @@ async def start_client():
             "node_id": CLIENT_NAME
         }
 
-        data = json.dumps(message).encode()
-
         print("Sending PING message...")
-        transport.sendto(data, (SERVER_IP, SERVER_PORT))
+
+        protocol.send_message(
+            message,
+            (SERVER_IP, SERVER_PORT)
+        )
 
         try:
             response = await asyncio.wait_for(
