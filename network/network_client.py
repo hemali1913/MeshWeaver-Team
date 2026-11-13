@@ -20,7 +20,7 @@ class UDPClient(asyncio.DatagramProtocol):
 
     def send_message(self, message, addr):
         try:
-            data = json.dumps(message).encode()
+            data = json.dumps(message).encode("utf-8")
             self.transport.sendto(data, addr)
 
             print("Message sent successfully:", message)
@@ -33,18 +33,31 @@ class UDPClient(asyncio.DatagramProtocol):
 
     def datagram_received(self, data, addr):
         try:
-            message = json.loads(data.decode())
+            message = json.loads(data.decode("utf-8"))
+
+            if not isinstance(message, dict):
+                raise ValueError("Response must be a JSON object")
 
             print("Response received:", message)
 
             if self.response_future and not self.response_future.done():
                 self.response_future.set_result(message)
 
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            print("Invalid response received.")
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as exc:
+            print("Invalid response received:", exc)
+
+            if self.response_future and not self.response_future.done():
+                self.response_future.set_exception(exc)
 
     def error_received(self, exc):
         print("UDP Error:", exc)
+
+        if self.response_future and not self.response_future.done():
+            self.response_future.set_exception(exc)
+
+    def connection_lost(self, exc):
+        if exc:
+            print("Connection lost:", exc)
 
 
 async def start_client():
@@ -80,14 +93,24 @@ async def start_client():
             if response.get("type") == "PONG":
                 print("Success! PONG received.")
             else:
-                print("Unexpected response.")
+                print("Unexpected response:", response)
 
         except asyncio.TimeoutError:
             print("Timeout! Server did not respond.")
+
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print("Communication error:", exc)
 
     finally:
         transport.close()
 
 
 if __name__ == "__main__":
-    asyncio.run(start_client())
+    try:
+        asyncio.run(start_client())
+
+    except KeyboardInterrupt:
+        print("Client stopped by user.")
+
+    except OSError as exc:
+        print("Client startup error:", exc)
