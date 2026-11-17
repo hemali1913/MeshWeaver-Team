@@ -6,7 +6,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - [GossipProtocol] -
 
 class GossipNode:
     """
-    Manages peer-to-peer cluster node telemetry, heartbeat tracking,
+    Manages peer-to-peer cluster node telemetry, heartbeat broadcasting,
     and periodic neighbor health checks at configurable intervals (default 5 seconds).
     """
     def __init__(self, node_id, host="127.0.0.1", port=8000, heartbeat_interval=5):
@@ -27,6 +27,26 @@ class GossipNode:
         }
         logging.info(f"Node {self.node_id} registered peer -> {peer_id} at {peer_host}:{peer_port}")
 
+    def broadcast_heartbeat(self):
+        """Simulates broadcasting a heartbeat message to all active cluster peers."""
+        current_time = time.time()
+        active_count = len(self.peers)
+        logging.info(f"Node {self.node_id} broadcasting heartbeat ping to {active_count} active peers.")
+        
+        # Simulate updating local timestamps or outgoing ping dispatch
+        for peer_id in self.peers:
+            logging.debug(f"Dispatched heartbeat ping to peer: {peer_id}")
+        return active_count
+
+    def get_cluster_status(self):
+        """Returns a snapshot of current node health and active peer registry."""
+        return {
+            "node_id": self.node_id,
+            "status": "ONLINE" if self.is_running else "OFFLINE",
+            "active_peers_count": len(self.peers),
+            "peers": list(self.peers.keys())
+        }
+
     def start_telemetry(self):
         """Starts the background gossip heartbeat telemetry loop."""
         if self.is_running:
@@ -38,10 +58,12 @@ class GossipNode:
         logging.info(f"Started gossip telemetry loop for node {self.node_id}")
 
     def _gossip_loop(self):
-        """Background loop executing 5-second interval checks and peer health monitoring."""
+        """Background loop executing 5-second interval checks and heartbeat broadcasts."""
         while self.is_running:
             current_time = time.time()
-            logging.info(f"Running 5-second neighbor telemetry sweep. Active peers count: {len(self.peers)}")
+            
+            # Broadcast heartbeat to peers
+            self.broadcast_heartbeat()
             
             # Check for inactive or dead peers (no heartbeat received for over 15 seconds)
             for peer_id, data in list(self.peers.items()):
@@ -60,11 +82,15 @@ class GossipNode:
 
 
 if __name__ == "__main__":
-    # Local validation block for gossip telemetry
+    # Local validation block for gossip telemetry and heartbeat broadcast
     node = GossipNode(node_id="node_alpha")
     node.register_peer("node_beta", "127.0.0.1", 8001)
     node.start_telemetry()
     
-    # Allow the 5-second interval loop to run at least once
+    # Allow the loop to run and broadcast heartbeat
     time.sleep(6)
+    
+    status = node.get_cluster_status()
+    print("Cluster Status Snapshot:", status)
+    
     node.stop_telemetry()
