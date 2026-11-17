@@ -61,6 +61,39 @@ class UDPServerTests(unittest.TestCase):
         self.assertEqual(self.server.messages_received, 1)
         self.assertEqual(self.server.responses_sent, 1)
 
+    def test_missing_type_returns_error(self):
+        self.server.datagram_received(b"{}", self.client)
+        response = self.response()
+        self.assertEqual(response["type"], "ERROR")
+        self.assertIn("Unsupported message type", response["message"])
+
+    def test_empty_type_returns_error(self):
+        self.server.datagram_received(b'{"type":""}', self.client)
+        response = self.response()
+        self.assertEqual(response["type"], "ERROR")
+
+    def test_numeric_type_returns_error(self):
+        self.server.datagram_received(b'{"type":123}', self.client)
+        response = self.response()
+        self.assertEqual(response["type"], "ERROR")
+
+    def test_list_type_returns_error(self):
+        self.server.datagram_received(b'{"type":["PING"]}', self.client)
+        response = self.response()
+        self.assertEqual(response["type"], "ERROR")
+
+    def test_null_json_returns_error(self):
+        self.server.datagram_received(b"null", self.client)
+        response = self.response()
+        self.assertEqual(response["type"], "ERROR")
+        self.assertEqual(response["message"], "Message must be a JSON object")
+
+    def test_empty_datagram_returns_error(self):
+        self.server.datagram_received(b"", self.client)
+        response = self.response()
+        self.assertEqual(response["type"], "ERROR")
+        self.assertEqual(response["message"], "Invalid JSON message")
+
 
 if __name__ == "__main__":
     unittest.main()
