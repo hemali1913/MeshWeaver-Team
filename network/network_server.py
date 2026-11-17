@@ -1,0 +1,213 @@
+"""
+MeshWeaver - Week 1 UDP Networking Server
+File: network_server.py
+
+Purpose
+-------
+Provides the server side of the Week 1 local UDP networking module.
+
+Supported behaviour
+-------------------
+1. Starts an asyncio UDP server on 127.0.0.1:5000.
+2. Receives UTF-8 JSON datagrams from clients.
+3. Validates that each message is a JSON object.
+4. Responds to {"type": "PING"} with a JSON PONG response.
+5. Responds to unknown message types with a JSON ERROR response.
+6. Handles malformed JSON, decoding errors, and socket errors.
+7. Prints useful messages for manual integration testing.
+
+Run
+---
+    python network_server.py
+
+Integration test
+----------------
+1. Run this file in Terminal 1.
+2. Run the team's network_client.py in Terminal 2.
+3. The client should send PING and receive PONG.
+
+Important
+---------
+This version uses 127.0.0.1, so it is intended for testing on the
+same computer. For communication between different computers, set
+SERVER_IP to the server computer's LAN IP and allow UDP port 5000
+through the relevant firewall.
+
+The server acknowledges PING only. It does not execute distributed
+tasks or assume a task-serialization format; those features must be
+connected after the team agrees on the serializer's message schema.
+"""
+
+import asyncio
+import json
+from typing import Any, Optional, Tuple
+
+
+# ---------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------
+
+SERVER_IP = "127.0.0.1"
+SERVER_PORT = 5000
+SERVER_NAME = "meshweaver-server"
+
+# Prevent unexpectedly large UDP payloads from being decoded.
+MAX_DATAGRAM_SIZE = 65507
+
+
+# ---------------------------------------------------------------------
+# UDP server protocol
+# ---------------------------------------------------------------------
+
+class UDPServer(asyncio.DatagramProtocol):
+    """Receive JSON messages and send appropriate UDP responses."""
+
+    def __init__(self) -> None:
+        self.transport: Optional[asyncio.DatagramTransport] = None
+        self.messages_received = 0
+        self.responses_sent = 0
+
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
+        """Called by asyncio after the UDP endpoint is created."""
+        self.transport = transport  # type: ignore[assignment]
+
+        print("\n" + "=" * 58)
+        print("MeshWeaver UDP Server is running")
+        print(f"Address : {SERVER_IP}")
+        print(f"Port    : {SERVER_PORT}")
+        print("Waiting for client messages...")
+        print("=" * 58 + "\n")
+
+    def datagram_received(self, data: bytes, addr: Tuple[str, int]) -> None:
+        """Process one incoming UDP datagram."""
+        self.messages_received += 1
+        print(f"\n[{self.messages_received}] Datagram received from {addr}")
+
+        if len(data) > MAX_DATAGRAM_SIZE:
+            self._send_error("Datagram is too large", addr)
+            return
+
+        try:
+            decoded = data.decode("utf-8")
+            message: Any = json.loads(decoded)
+
+            if not isinstance(message, dict):
+                self._send_error("Message must be a JSON object", addr)
+                return
+
+            print("Received message:", message)
+            self._handle_message(message, addr)
+
+        except UnicodeDecodeError:
+            self._send_error("Message must use UTF-8 encoding", addr)
+
+        except json.JSONDecodeError:
+            self._send_error("Invalid JSON message", addr)
+
+    def _handle_message(
+        self,
+        message: dict,
+        addr: Tuple[str, int]
+    ) -> None:
+        """Choose a response based on the incoming message type."""
+        message_type = message.get("type")
+
+        if message_type == "PING":
+            response = {
+                "type": "PONG",
+                "node_id": SERVER_NAME,
+                "status": "success",
+                "message": "Server is active"
+            }
+            self._send_response(response, addr)
+
+        else:
+            self._send_error(
+                f"Unsupported message type: {message_type!r}",
+                addr
+            )
+
+    def _send_error(self, error_message: str, addr: Tuple[str, int]) -> None:
+        """Send a consistent JSON error response to the client."""
+        response = {
+            "type": "ERROR",
+            "node_id": SERVER_NAME,
+            "status": "failed",
+            "message": error_message
+        }
+        self._send_response(response, addr)
+
+    def _send_response(
+        self,
+        response: dict,
+        addr: Tuple[str, int]
+    ) -> None:
+        """Encode a response as JSON and send it to the client."""
+        if self.transport is None:
+            print("Cannot send response: UDP transport is not available.")
+            return
+
+        try:
+            payload = json.dumps(response).encode("utf-8")
+            self.transport.sendto(payload, addr)
+            self.responses_sent += 1
+            print("Sent response:", response)
+
+        except (TypeError, ValueError) as exc:
+            print("Response JSON encoding error:", exc)
+
+        except OSError as exc:
+            print("UDP sending error:", exc)
+
+    def error_received(self, exc: Exception) -> None:
+        """Report asynchronous UDP socket errors."""
+        print("UDP socket error:", exc)
+
+    def connection_lost(self, exc: Optional[Exception]) -> None:
+        """Report that the UDP transport has closed."""
+        print("\nUDP server connection closed.")
+
+        if exc is not None:
+            print("Connection closed with error:", exc)
+
+        print(f"Messages received : {self.messages_received}")
+        print(f"Responses sent    : {self.responses_sent}")
+
+
+# ---------------------------------------------------------------------
+# Server startup
+# ---------------------------------------------------------------------
+
+async def start_server() -> None:
+    """Create the UDP endpoint and keep the server running."""
+    loop = asyncio.get_running_loop()
+
+    transport, _protocol = await loop.create_datagram_endpoint(
+        UDPServer,
+        local_addr=(SERVER_IP, SERVER_PORT)
+    )
+
+    try:
+        # Keep the server alive until the user stops it with Ctrl+C.
+        await asyncio.Future()
+    finally:
+        transport.close()
+
+
+# ---------------------------------------------------------------------
+# Program entry point
+# ---------------------------------------------------------------------
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(start_server())
+
+    except KeyboardInterrupt:
+        print("\nMeshWeaver UDP Server stopped by user.")
+
+    except OSError as exc:
+        print("\nCould not start the UDP server:", exc)
+        print(
+            f"Check whether UDP port {SERVER_PORT} is already in use "
+            "or unavailable."
+        )
