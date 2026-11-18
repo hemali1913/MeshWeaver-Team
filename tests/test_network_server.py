@@ -2,6 +2,9 @@
 
 import json
 import unittest
+import os
+import subprocess
+import sys
 
 from network.network_server import UDPServer
 
@@ -95,5 +98,32 @@ class UDPServerTests(unittest.TestCase):
         self.assertEqual(response["message"], "Invalid JSON message")
 
 
+class ServerConfigurationTests(unittest.TestCase):
+
+    def run_server_import(self, port):
+        env = os.environ.copy()
+        env["MESHWEAVER_SERVER_PORT"] = port
+
+        return subprocess.run(
+            [sys.executable, "-c", "import network.network_server"],
+            env=env,
+            capture_output=True,
+            text=True
+        )
+    def test_non_numeric_port_is_rejected(self):
+        result = self.run_server_import("abc")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("must be an integer", result.stderr)
+    def test_port_above_range_is_rejected(self):
+        result = self.run_server_import("70000")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("between 1 and 65535", result.stderr)
+    def test_zero_port_is_rejected(self):
+        result = self.run_server_import("0")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("between 1 and 65535", result.stderr)
+    def test_valid_port_is_accepted(self):
+        result = self.run_server_import("5000")
+        self.assertEqual(result.returncode, 0, result.stderr)
 if __name__ == "__main__":
     unittest.main()
