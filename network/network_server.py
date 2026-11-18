@@ -19,7 +19,15 @@ import os
 from typing import Any, Optional, Tuple
 
 SERVER_IP = os.getenv("MESHWEAVER_SERVER_IP", "127.0.0.1")
-SERVER_PORT = int(os.getenv("MESHWEAVER_SERVER_PORT", "5000"))
+
+try:
+    SERVER_PORT = int(os.getenv("MESHWEAVER_SERVER_PORT", "5000"))
+except ValueError:
+    raise ValueError("MESHWEAVER_SERVER_PORT must be an integer.")
+
+if not 1 <= SERVER_PORT <= 65535:
+    raise ValueError("MESHWEAVER_SERVER_PORT must be between 1 and 65535.")
+
 SERVER_NAME = "meshweaver-server"
 MAX_DATAGRAM_SIZE = 65507
 
