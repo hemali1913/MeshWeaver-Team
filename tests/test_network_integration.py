@@ -3,7 +3,7 @@ import asyncio
 import json
 import unittest
 
-from network.network_server import UDPServer
+from network.network_server import UDPServer, start_server
 
 
 class TestClientProtocol(asyncio.DatagramProtocol):
@@ -73,7 +73,22 @@ class UDPIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         finally:
             server_transport.close()
+            
 
+    async def test_server_rejects_occupied_port(self):
+        loop = asyncio.get_running_loop()
 
+        blocker_transport, _ = await loop.create_datagram_endpoint(
+            asyncio.DatagramProtocol,
+            local_addr=("127.0.0.1", 0),
+        )
+
+        occupied_port = blocker_transport.get_extra_info("sockname")[1]
+
+        try:
+            with self.assertRaises(OSError):
+                await start_server("127.0.0.1", occupied_port)
+        finally:
+            blocker_transport.close()
 if __name__ == "__main__":
     unittest.main()
