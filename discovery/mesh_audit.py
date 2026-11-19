@@ -53,6 +53,33 @@ def audit_nodes(nodes):
 
     print("NOTE: Automatic peer discovery is not implemented yet.")
 
+    print("\n========== XOR DISTANCE AUDIT ==========")
+
+    node_a = nodes[0]
+    node_b = nodes[1]
+
+    distance_ab = node_a.calculate_distance(node_b.node_id)
+    distance_ba = node_b.calculate_distance(node_a.node_id)
+    distance_self = node_a.calculate_distance(node_a.node_id)
+
+    print(f"Distance A -> B: {distance_ab}")
+    print(f"Distance B -> A: {distance_ba}")
+    print(f"Distance A -> A: {distance_self}")
+
+    if isinstance(distance_ab, int):
+        print("PASS: XOR distance is an integer")
+    else:
+        print("FAIL: XOR distance is not an integer")
+
+    if distance_ab == distance_ba:
+        print("PASS: XOR distance is symmetric")
+    else:
+        print("FAIL: XOR distance is not symmetric")
+
+    if distance_self == 0:
+        print("PASS: Self-distance is zero")
+    else:
+        print("FAIL: Self-distance is not zero")
 
 if __name__ == "__main__":
     nodes = create_nodes(10)
