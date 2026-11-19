@@ -1,5 +1,6 @@
 
 import secrets
+from routing_table import RoutingTable
 
 
 class DHTNode:
@@ -13,19 +14,23 @@ class DHTNode:
         self.host = host
         self.port = port
 
-        # Store information about discovered nodes
-        self.routing_table = {}
+        # Initialize routing table
+        self.routing_table = RoutingTable()
 
     def calculate_distance(self, other_node_id):
 
-        # Convert hexadecimal Node IDs into integers
         node1 = int(self.node_id, 16)
         node2 = int(other_node_id, 16)
 
-        # Calculate XOR distance
-        distance = node1 ^ node2
+        return node1 ^ node2
 
-        return distance
+    def add_to_routing_table(self, node_info):
+
+        return self.routing_table.add_node(node_info)
+
+    def remove_from_routing_table(self, node_id):
+
+        return self.routing_table.remove_node(node_id)
 
     def get_node_info(self):
 
@@ -41,28 +46,28 @@ class DHTNode:
         print("Node ID:", self.node_id)
         print("Host:", self.host)
         print("Port:", self.port)
-        print("Routing Table:", self.routing_table)
+
+        self.routing_table.display_table()
+
         print("==============================")
 
 
 if __name__ == "__main__":
 
-    # Create two DHT nodes
     node1 = DHTNode(port=5001)
     node2 = DHTNode(port=5002)
 
-    # Display node information
+    print("\nAdding Node 2 to Node 1 Routing Table")
+    node1.add_to_routing_table(node2.get_node_info())
+
     print("\nNODE 1 INFORMATION")
     node1.display_node_info()
 
     print("\nNODE 2 INFORMATION")
     node2.display_node_info()
 
-    # Calculate XOR distance
     distance = node1.calculate_distance(node2.node_id)
 
     print("\n========== XOR DISTANCE ==========")
-    print("Node 1 ID:", node1.node_id)
-    print("Node 2 ID:", node2.node_id)
     print("XOR Distance:", distance)
     print("==================================")
