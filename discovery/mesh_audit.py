@@ -30,9 +30,12 @@ def audit_nodes(nodes):
         ports.add(node.port)
 
         print(f"Node-{i}")
-        print(f"  Node ID: {node.node_id}")
-        print(f"  Host: {node.host}")
-        print(f"  Port: {node.port}")
+
+        info = node.get_node_info()
+
+        print(f"  Node ID: {info['node_id']}")
+        print(f"  Host: {info['host']}")
+        print(f"  Port: {info['port']}")
         print(f"  Routing Table: {node.routing_table}")
         print()
 
