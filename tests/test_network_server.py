@@ -42,6 +42,8 @@ class UDPServerTests(unittest.TestCase):
         response = self.response()
         self.assertEqual(response["type"], "ERROR")
         self.assertEqual(response["status"], "failed")
+        self.assertEqual(self.server.invalid_messages, 1)
+        self.assertEqual(self.server.errors_sent, 1)
 
     def test_invalid_json_returns_error(self):
         self.server.datagram_received(b'{"type":', self.client)
@@ -63,6 +65,9 @@ class UDPServerTests(unittest.TestCase):
         self.server.datagram_received(b'{"type":"PING"}', self.client)
         self.assertEqual(self.server.messages_received, 1)
         self.assertEqual(self.server.responses_sent, 1)
+        self.assertEqual(self.server.ping_requests, 1)
+        self.assertEqual(self.server.invalid_messages, 0)
+        self.assertEqual(self.server.errors_sent, 0)
 
     def test_missing_type_returns_error(self):
         self.server.datagram_received(b"{}", self.client)

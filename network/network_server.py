@@ -39,6 +39,10 @@ class UDPServer(asyncio.DatagramProtocol):
         self.transport: Optional[asyncio.DatagramTransport] = None
         self.messages_received = 0
         self.responses_sent = 0
+        self.ping_requests = 0
+        self.invalid_messages = 0
+        self.errors_sent = 0
+        
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """Called by asyncio after the UDP endpoint is created."""
@@ -83,6 +87,7 @@ class UDPServer(asyncio.DatagramProtocol):
         message_type = message.get("type")
 
         if message_type == "PING":
+            self.ping_requests += 1
             response = {
                 "type": "PONG",
                 "node_id": SERVER_NAME,
@@ -91,6 +96,7 @@ class UDPServer(asyncio.DatagramProtocol):
             }
             self._send_response(response, addr)
         else:
+            self.invalid_messages += 1
             self._send_error(
                 f"Unsupported message type: {message_type!r}", addr
             )
@@ -103,6 +109,7 @@ class UDPServer(asyncio.DatagramProtocol):
             "status": "failed",
             "message": error_message,
         }
+        self.errors_sent += 1
         self._send_response(response, addr)
 
     def _send_response(
@@ -134,6 +141,9 @@ class UDPServer(asyncio.DatagramProtocol):
             print("Connection closed with error:", exc)
         print(f"Messages received : {self.messages_received}")
         print(f"Responses sent    : {self.responses_sent}")
+        print(f"PING requests      : {self.ping_requests}")
+        print(f"Invalid messages   : {self.invalid_messages}")
+        print(f"Error responses    : {self.errors_sent}")
 
 
 async def start_server(
