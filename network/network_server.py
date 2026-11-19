@@ -14,11 +14,16 @@ Optional configuration:
 """
 
 import asyncio
+import logging
 import json
 import os
 from typing import Any, Optional, Tuple
 
 SERVER_IP = os.getenv("MESHWEAVER_SERVER_IP", "127.0.0.1")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
 
 try:
     SERVER_PORT = int(os.getenv("MESHWEAVER_SERVER_PORT", "5000"))
@@ -117,34 +122,35 @@ class UDPServer(asyncio.DatagramProtocol):
     ) -> None:
         """Encode a response as JSON and send it to the client."""
         if self.transport is None:
-            print("Cannot send response: UDP transport is not available.")
+            logging.warning("Cannot send response: UDP transport is not available.")
             return
 
         try:
             payload = json.dumps(response).encode("utf-8")
             self.transport.sendto(payload, addr)
             self.responses_sent += 1
-            print("Sent response:", response)
+            logging.info("Sent response: %s", response)
         except (TypeError, ValueError) as exc:
-            print("Response JSON encoding error:", exc)
+            logging.error("Response JSON encoding error: %s", exc)
         except OSError as exc:
-            print("UDP sending error:", exc)
+           logging.error("UDP sending error: %s", exc)
 
     def error_received(self, exc: Exception) -> None:
         """Report asynchronous UDP socket errors."""
-        print("UDP socket error:", exc)
+        logging.error("UDP socket error: %s", exc)
 
     def connection_lost(self, exc: Optional[Exception]) -> None:
         """Report that the UDP transport has closed."""
-        print("\nUDP server connection closed.")
-        if exc is not None:
-            print("Connection closed with error:", exc)
-        print(f"Messages received : {self.messages_received}")
-        print(f"Responses sent    : {self.responses_sent}")
-        print(f"PING requests      : {self.ping_requests}")
-        print(f"Invalid messages   : {self.invalid_messages}")
-        print(f"Error responses    : {self.errors_sent}")
+        logging.info("UDP server connection closed.")
 
+        if exc is not None:
+            logging.error("Connection closed with error: %s", exc)
+
+        logging.info("Messages received: %s", self.messages_received)
+        logging.info("Responses sent: %s", self.responses_sent)
+        logging.info("PING requests: %s", self.ping_requests)
+        logging.info("Invalid messages: %s", self.invalid_messages)
+        logging.info("Error responses: %s", self.errors_sent)
 
 async def start_server(
     host: str = SERVER_IP, port: int = SERVER_PORT
