@@ -52,5 +52,5 @@ def audit_nodes(nodes):
 
 
 if __name__ == "__main__":
-    nodes = create_nodes(2)
+    nodes = create_nodes(10)
     audit_nodes(nodes)
