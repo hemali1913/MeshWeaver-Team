@@ -103,6 +103,53 @@ class UDPServerTests(unittest.TestCase):
         self.assertEqual(response["message"], "Invalid JSON message")
 
 
+
+class UDPServerLoggingTests(unittest.TestCase):
+
+    def setUp(self):
+        self.server = UDPServer()
+        self.transport = FakeTransport()
+        self.server.transport = self.transport
+        self.client = ("127.0.0.1", 54321)
+
+    def test_response_generates_info_log(self):
+        with self.assertLogs(level="INFO") as captured:
+            self.server._send_response(
+                {"type": "PONG"}, self.client
+            )
+
+        self.assertTrue(
+            any("Sent response" in message
+                for message in captured.output)
+        )
+
+    def test_udp_socket_error_generates_error_log(self):
+        with self.assertLogs(level="ERROR") as captured:
+            self.server.error_received(
+                OSError("Test socket error")
+            )
+
+        self.assertTrue(
+            any("UDP socket error" in message
+                for message in captured.output)
+        )
+
+    def test_connection_lost_logs_traffic_statistics(self):
+        self.server.messages_received = 5
+        self.server.responses_sent = 4
+        self.server.ping_requests = 3
+
+        with self.assertLogs(level="INFO") as captured:
+            self.server.connection_lost(None)
+
+        output = "\n".join(captured.output)
+
+        self.assertIn("Messages received: 5", output)
+        self.assertIn("Responses sent: 4", output)
+        self.assertIn("PING requests: 3", output)
+
+
+
 class ServerConfigurationTests(unittest.TestCase):
 
     def run_server_import(self, port):
