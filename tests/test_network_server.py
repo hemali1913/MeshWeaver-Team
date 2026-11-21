@@ -150,6 +150,59 @@ class UDPServerLoggingTests(unittest.TestCase):
 
 
 
+
+class UDPServerTransportTests(unittest.TestCase):
+
+    def setUp(self):
+        self.server = UDPServer()
+        self.client = ("127.0.0.1", 54321)
+
+    def test_missing_transport_generates_warning(self):
+        self.server.transport = None
+
+        with self.assertLogs(level="WARNING") as captured:
+            self.server._send_response(
+                {"type": "PONG"}, self.client
+            )
+
+        self.assertIn(
+            "UDP transport is not available",
+            captured.output[0]
+        )
+        self.assertEqual(self.server.responses_sent, 0)
+
+    def test_json_encoding_error_generates_error_log(self):
+        self.server.transport = FakeTransport()
+
+        with self.assertLogs(level="ERROR") as captured:
+            self.server._send_response(
+                {"type": object()}, self.client
+            )
+
+        self.assertIn(
+            "Response JSON encoding error",
+            captured.output[0]
+        )
+        self.assertEqual(self.server.responses_sent, 0)
+
+    def test_udp_send_error_generates_error_log(self):
+        class FailingTransport:
+            def sendto(self, data, addr):
+                raise OSError("Test send failure")
+
+        self.server.transport = FailingTransport()
+
+        with self.assertLogs(level="ERROR") as captured:
+            self.server._send_response(
+                {"type": "PONG"}, self.client
+            )
+
+        self.assertIn(
+            "UDP sending error",
+            captured.output[0]
+        )
+        self.assertEqual(self.server.responses_sent, 0)
+
 class ServerConfigurationTests(unittest.TestCase):
 
     def run_server_import(self, port):
