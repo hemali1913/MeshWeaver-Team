@@ -101,6 +101,20 @@ class UDPServerTests(unittest.TestCase):
         response = self.response()
         self.assertEqual(response["type"], "ERROR")
         self.assertEqual(response["message"], "Invalid JSON message")
+        
+    def test_oversized_datagram_returns_error(self):
+        data = b"x" * 65508
+
+        self.server.datagram_received(data, self.client)
+
+        response = self.response()
+
+        self.assertEqual(response["type"], "ERROR")
+        self.assertEqual(
+            response["message"], "Datagram is too large"
+        )
+        self.assertEqual(self.server.messages_received, 1)
+        self.assertEqual(self.server.errors_sent, 1)
 
 
 
