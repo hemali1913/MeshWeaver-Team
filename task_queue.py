@@ -16,10 +16,11 @@ class TaskExecutionError(Exception):
 class TaskQueueManager:
     """
     Thread-safe task queue that accepts callables, serializes them into payloads,
-    tracks task lifecycle states, and executes them via worker threads.
+    tracks task lifecycle states, supports retries, and executes tasks via workers.
     """
-    def __init__(self, worker_id="worker_1"):
+    def __init__(self, worker_id="worker_1", max_retries=2):
         self.worker_id = worker_id
+        self.max_retries = max_retries
         self._queue = queue.Queue()
         self._lock = threading.Lock()
         self.tasks = {}  # task_id -> metadata & status/result
@@ -41,6 +42,7 @@ class TaskQueueManager:
                 "payload": payload,
                 "result": None,
                 "error": None,
+                "attempts": 0,
                 "created_at": time.time(),
             }
 
@@ -61,6 +63,7 @@ class TaskQueueManager:
                 self._queue.task_done()
                 return None
             record["status"] = "RUNNING"
+            record["attempts"] += 1
 
         try:
             fn, args, kwargs = deserialize_task(record["payload"])
@@ -68,6 +71,7 @@ class TaskQueueManager:
             with self._lock:
                 record["status"] = "COMPLETED"
                 record["result"] = result
+                record["error"] = None
             logging.info(f"[{self.worker_id}] Task {task_id} completed successfully.")
             return result
         except TaskDeserializationError as exc:
@@ -84,6 +88,37 @@ class TaskQueueManager:
             raise TaskExecutionError(f"Task {task_id} raised an exception: {exc}") from exc
         finally:
             self._queue.task_done()
+
+    def retry_failed_task(self, task_id):
+        """
+        Re-queues a FAILED task if its attempt count is below max_retries.
+        Returns True if re-queued, False otherwise.
+        """
+        with self._lock:
+            record = self.tasks.get(task_id)
+            if not record or record["status"] != "FAILED":
+                logging.warning(f"[{self.worker_id}] Task {task_id} is not eligible for retry.")
+                return False
+            if record["attempts"] > self.max_retries:
+                logging.warning(
+                    f"[{self.worker_id}] Task {task_id} exceeded max_retries ({self.max_retries})."
+                )
+                return False
+
+            record["status"] = "QUEUED"
+            record["error"] = None
+
+        self._queue.put(task_id)
+        logging.info(f"[{self.worker_id}] Re-queued failed task {task_id} for retry.")
+        return True
+
+    def list_tasks_by_status(self, status):
+        """Returns a list of task_ids matching the requested status."""
+        with self._lock:
+            return [
+                tid for tid, meta in self.tasks.items()
+                if meta["status"] == status
+            ]
 
     def start_workers(self):
         """Starts background worker loop to continuously drain queued tasks."""
@@ -120,18 +155,31 @@ class TaskQueueManager:
                 "status": task["status"],
                 "result": task["result"],
                 "error": task["error"],
+                "attempts": task["attempts"],
             }
 
 
 if __name__ == "__main__":
-    def multiply_add(x, y, offset=0):
-        return (x * y) + offset
+    def compute_with_retry_demo(val, should_fail_first=True):
+        if should_fail_first:
+            raise RuntimeError("Simulated transient failure")
+        return val * 10
 
-    qm = TaskQueueManager(worker_id="node_alpha_worker")
-    qm.start_workers()
+    qm = TaskQueueManager(worker_id="node_alpha_worker", max_retries=2)
 
-    tid = qm.enqueue_task(multiply_add, args=(7, 6), kwargs={"offset": 8})
-    time.sleep(0.5)
-    print("Task Status:", qm.get_task_status(tid))
+    # 1. Enqueue a task that fails on first run, then retry with a healthy payload
+    tid_fail = qm.enqueue_task(compute_with_retry_demo, args=(4,), kwargs={"should_fail_first": True})
+    try:
+        qm.process_next_task(timeout=0.5)
+    except TaskExecutionError:
+        pass
 
-    qm.stop_workers()
+    print("After attempt 1:", qm.get_task_status(tid_fail))
+    if qm.retry_failed_task(tid_fail):
+        # Replace payload with non-failing call for demonstration of successful retry recovery
+        with qm._lock:
+            qm.tasks[tid_fail]["payload"] = serialize_task(
+                compute_with_retry_demo, args=(4,), kwargs={"should_fail_first": False}
+            )
+        res = qm.process_next_task(timeout=0.5)
+        print("After retry result:", res, "| Status:", qm.get_task_status(tid_fail))
