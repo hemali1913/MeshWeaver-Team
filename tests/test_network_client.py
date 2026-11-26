@@ -97,5 +97,15 @@ class UDPClientTests(unittest.TestCase):
         self.client.connection_lost(error)
 
 
+    def test_send_message_handles_unavailable_transport(self):
+        client = UDPClient()
+
+        client.send_message(
+            {"type": "PING"},
+            ("127.0.0.1", 5000)
+        )
+
+        self.assertIsNone(client.transport)
+
 if __name__ == "__main__":
     unittest.main()

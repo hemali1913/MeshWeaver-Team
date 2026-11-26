@@ -19,6 +19,10 @@ class UDPClient(asyncio.DatagramProtocol):
         print("UDP Client is ready.")
 
     def send_message(self, message, addr):
+        if self.transport is None:
+            print("UDP transport is not available.")
+            return
+
         try:
             data = json.dumps(message).encode("utf-8")
             self.transport.sendto(data, addr)
