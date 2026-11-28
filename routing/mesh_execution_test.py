@@ -10,6 +10,34 @@ implementation will be provided by other team members.
 """
 
 
+TEST_CASES = [
+    {
+        "id": "TEST-01",
+        "scenario": "Basic task execution",
+        "expected": "Task is successfully executed by a selected node",
+        "status": "PENDING"
+    },
+    {
+        "id": "TEST-02",
+        "scenario": "Task result verification",
+        "expected": "Executed task returns the expected result",
+        "status": "PENDING"
+    },
+    {
+        "id": "TEST-03",
+        "scenario": "Node failure handling",
+        "expected": "System detects an unavailable node",
+        "status": "PENDING"
+    },
+    {
+        "id": "TEST-04",
+        "scenario": "Task rerouting",
+        "expected": "Task is rerouted to another available node",
+        "status": "PENDING"
+    }
+]
+
+
 def test_task_execution():
     """
     Test whether a simple task can be executed
@@ -45,6 +73,19 @@ def test_task_rerouting():
     print("Status: PENDING - waiting for rerouting implementation")
 
 
+def display_test_case_checklist():
+    """
+    Display the Week 3 testing checklist.
+    """
+    print("\n========== WEEK 3 TEST CASE CHECKLIST ==========")
+
+    for test in TEST_CASES:
+        print(f"\n{test['id']}")
+        print(f"Scenario : {test['scenario']}")
+        print(f"Expected : {test['expected']}")
+        print(f"Status   : {test['status']}")
+
+
 if __name__ == "__main__":
     print("========== WEEK 3 MESH EXECUTION AUDIT ==========")
 
@@ -52,6 +93,8 @@ if __name__ == "__main__":
     test_task_result()
     test_node_failure()
     test_task_rerouting()
+
+    display_test_case_checklist()
 
     print("\n========== AUDIT STATUS ==========")
     print("Test scenarios prepared.")
